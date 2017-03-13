@@ -1,6 +1,11 @@
 function [ subset ] = generateSubset( m, nodes )
 %UNTITLED3 Summary of this function goes here
-%   minfo must contain fields S, Species, nx,  
+%   minfo must contain fields S, Species, nx, 
+%   .plotDiagram(t,m,con,sim,opts)
+%       opts
+%           .expandNodes
+%           .eliminateInactiveNodes
+%   .plotReactions(t,m,con,sim)
 
 nx = m.nx;
 S = full(m.S);
@@ -34,7 +39,8 @@ subset.nr = size(subset.Sr,2);
 subset.Srexpanded = S(unique(subset.Siexpanded),unique(subset.Sjexpanded));
 
 % Set reaction names
-subset.rnames = {m.Reactions(unique(subset.Sj)).Name}';
+rnames = {m.Reactions(unique(subset.Sj)).Name}';
+subset.rnames = rnames;
 
 % Set state names to include reactants and products of reactions, in
 % addition to user-specified nodes
@@ -53,6 +59,13 @@ subset.plotDiagram = @plotDiagram;
             if nargin < 4
                 sim = getSim(t,m,con);
             end
+        end
+        
+        if ~isfield(opts, 'expandNodes')
+            opts.expandNodes = false;
+        end
+        if ~isfield(opts, 'eliminateInactiveNodes')
+            opts.eliminateInactiveNodes = false;
         end
         
         % Get simulation data
@@ -88,6 +101,7 @@ subset.plotDiagram = @plotDiagram;
         % Add in reaction nodes
         reactionsnullbase = textscan(sprintf('r%d\n',1:nr),'%s\n');
         reactionsnullbase = reactionsnullbase{1};
+        
         %reactionsnullbase = repmat({''},nr,1);
         
         % Convert stoichiometry matrix to connectivity matrix
@@ -95,6 +109,7 @@ subset.plotDiagram = @plotDiagram;
         
         % Initialize biographs
         temp = biograph(Cbase,[statesnullbase;reactionsnullbase]);
+        rindices_base = [NaN(size(statesnullbase));(1:nr).'];
         bg = repmat(temp,nsims,1);
         
         % Set minimum line width and minimum line color
@@ -111,6 +126,7 @@ subset.plotDiagram = @plotDiagram;
             C = Cbase; % reset C and states list in case some inactive nodes were eliminated
             statesnull = statesnullbase;
             reactionsnull = reactionsnullbase;
+            rindices = rindices_base;
             
             % Get state values for all nodes for this simulation
             x_si = zeros(nxnull,1);
@@ -231,6 +247,7 @@ subset.plotDiagram = @plotDiagram;
                 C(:,nodeisinactive) = [];
                 statesnull(nodeisinactive(1:nxnull)) = [];
                 reactionsnull(nodeisinactive(nxnull+1:nxnull+nrnull)) = [];
+                rindices(nodeisinactive) = [];
                 nxnull = length(statesnull);
                 nrnull = length(reactionsnull);
                 weights_C(nodeisinactive,:) = [];
@@ -257,7 +274,9 @@ subset.plotDiagram = @plotDiagram;
             for ni = 1:length(nodeids)
                 set(bg(si).Nodes(ni),'Label',nodelabels{statestonodes(ni)});
                 if isreactionnode(statestonodes(ni))
-                    set(bg(si).Nodes(ni),'Color',reactionnodecolor,'Shape',reactionnodeshape)
+                    ri = rindices(ni);
+                    reactionnodedescription = subset.rnames{ri};
+                    set(bg(si).Nodes(ni),'Color',reactionnodecolor,'Shape',reactionnodeshape,'Description',reactionnodedescription)
                 end
             end
             
@@ -321,6 +340,7 @@ subset.plotDiagram = @plotDiagram;
     function [rscaled,r] = getReactionRates(t,sim,m,con)
         
         assert(isscalar(t),'t must be a scalar')
+        assert(isscalar(con) && isstruct(con), 'con must be a scalar experiment struct')
         t = repmat(t,size(m));
         
         % Update m to include parameter resets
