@@ -1,6 +1,13 @@
 function [ subset ] = generateSubset( m, nodes )
-%UNTITLED3 Summary of this function goes here
-%   minfo must contain fields S, Species, nx,  
+% subset = generateSubset( m, nodes )
+%   m must contain fields S, Species, nx,  
+%   Output arguments
+%       subset
+%           .plotDiagram(t,m,con,sim,opts)
+%               Input arguments
+%                   opts
+%                       .expandNodes
+%                       .eliminateInactiveNodes
 
 nx = m.nx;
 S = full(m.S);
